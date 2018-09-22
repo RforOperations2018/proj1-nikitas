@@ -9,8 +9,8 @@ library(shinythemes)
 library(shinyjs)
 
 # loading preliminary data files
-count_data <- read.csv("count_data.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
-presc_clean <- read.csv("presc_clean.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
+count_data <- read.csv("Count_Data.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
+presc_clean <- read.csv("Presc_Clean.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
 
 # Minor data cleaning
 count_data$gender[which(count_data$gender == "No Data" | count_data$gender == "Transgendered male to female")] <- "Other"
@@ -18,6 +18,11 @@ count_data$race[-which(count_data$race == "White" | count_data$race == "Black/Af
 
 # Merging both files 
 merged <- merge(presc_clean, count_data, key = "PERSON_ID", all.x = TRUE)
+
+# Needed to randomly sample 100,000 instances from the merged dataset (or else, too big to deploy to shinyapps.io)
+merged <- merged %>% sample_n(100000) 
+
+# Changed these column names for ease of understanding when selecting y axis in the ui
 colnames(merged)[c(33, 34, 38)] <- c("mental_health", "drug_alc_abuse", "child_youth_family")
 
 pdf(NULL)

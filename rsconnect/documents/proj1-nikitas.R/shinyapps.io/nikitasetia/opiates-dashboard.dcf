@@ -1,0 +1,12 @@
+name: opiates-dashboard
+title: opiates-dashboard
+username:
+account: nikitasetia
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 463508
+bundleId: 1599892
+url: https://nikitasetia.shinyapps.io/opiates-dashboard/
+when: 1537645374.75637
+asMultiple: FALSE
+asStatic: FALSE
