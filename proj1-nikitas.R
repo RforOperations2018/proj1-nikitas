@@ -203,7 +203,7 @@ server <- function(input, output, session) {
   output$avg_presc <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(ind_presc = n())
     num <- round(mean(dat$ind_presc, na.rm = T))
-    infoBox("Average Number of Prescriptions per Person", 
+    infoBox("Avg # Rx per Person", 
             value = num, paste(nrow(dataFiltered()), "prescriptions"), 
             icon = icon("calculator"), color = "blue")
   })
@@ -211,7 +211,7 @@ server <- function(input, output, session) {
   output$avg_age <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(avg_age = max(avg_age))
     num <- round(mean(dat$avg_age, na.rm = T))
-    infoBox("Average Age", value = num, subtitle = paste(nrow(dat), "individuals"), 
+    infoBox("Avg Age", value = num, subtitle = paste(nrow(dat), "individuals"), 
             icon = icon("calculator"), color = "blue")
   })
   # Creating info box for average mental health service usage
@@ -220,7 +220,7 @@ server <- function(input, output, session) {
       summarise(months_activity = max(months_activity), mh_count = max(mental_health)) %>%
       group_by(PERSON_ID) %>% summarise(prop_mh_ind = mh_count/months_activity) %>% filter(prop_mh_ind > 0)
     num <- round(mean(dat$prop_mh_ind, na.rm = T),2)*100
-    infoBox("Average % Mental Health Service Usage", value = paste(num, "%"), subtitle = "if ever used", 
+    infoBox("Avg % Mental Health Usage", value = paste(num, "%"), subtitle = "if ever used", 
             icon = icon("calculator"), color = "blue")
   })
   # Creating info box for average drug and alcohol abuse service
@@ -229,7 +229,7 @@ server <- function(input, output, session) {
       summarise(months_activity = max(months_activity), da_count = max(drug_alc_abuse)) %>% 
       group_by(PERSON_ID) %>% summarise(prop_da_ind = da_count/months_activity) %>% filter(prop_da_ind > 0)
     num <- round(mean(dat$prop_da_ind, na.rm = T),2)*100
-    infoBox("Average % Drug and Alcohol Abuse Service Usage", subtitle = "if ever used", value = paste(num, "%"), 
+    infoBox("Avg % Drug & Alc Abuse Service Use", subtitle = "if ever used", value = paste(num, "%"), 
             icon = icon("calculator"), color = "blue")
   })
   # A plot showing proportion of any service (mh, da or cyfparent) to total prescription service usage
