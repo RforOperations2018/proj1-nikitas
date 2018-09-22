@@ -8,6 +8,7 @@ library(plotly)
 library(shinythemes)
 library(shinyjs)
 
+# loading preliminary data files
 count_data <- read.csv("count_data.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
 presc_clean <- read.csv("presc_clean.csv", header = TRUE, sep = ',', stringsAsFactors = FALSE)
 
@@ -15,44 +16,56 @@ presc_clean <- read.csv("presc_clean.csv", header = TRUE, sep = ',', stringsAsFa
 count_data$gender[which(count_data$gender == "No Data" | count_data$gender == "Transgendered male to female")] <- "Other"
 count_data$race[-which(count_data$race == "White" | count_data$race == "Black/African-American")] <- "Other"
 
+# Merging both files 
 merged <- merge(presc_clean, count_data, key = "PERSON_ID", all.x = TRUE)
 
 pdf(NULL)
 
+# Creating dashboard header
 header <- dashboardHeader(title = "Opiates Dashboard")
 
+# Creating dashboard sidebar
 sidebar <- dashboardSidebar(
   sidebarMenu(
     id = "tabs",
+    # Setting dashboard menu items / pages
     menuItem("Prescription Trends", icon = icon("medkit"), tabName = "prescription"),
     menuItem("Service Usage", icon = icon("users"), tabName = "service"),
     menuItem("Ties to Criminal Justice System", icon = icon("gavel"), tabName = "cjs"),
     menuItem("Data Exploration", icon = icon("table"), tabName = "data"),
+    # Adding global select input for race
     selectInput("race_select",
                "Race:", 
                choices = unique(merged$race),
                multiple = TRUE,
                selectize = TRUE,
                selected = c("White", "Black/African-American", "Other")),
+    # Adding global select input for gender
     selectInput("gender_select",
                 "Gender:",
                 choices = unique(merged$gender),
                 multiple = TRUE,
                 selectize = TRUE,
                 selected = c("Female", "Male", "Other")),
+    # Adding reset button to reset ALL filters
     actionButton("reset", "Reset Filters", icon = icon("refresh"))
     )
 )
 
+# Creating dashboard body
 body <- dashboardBody(tabItems(
+  # Adding elements to the 'prescription' menu item
   tabItem("prescription",
           fluidRow(
+            # info boxes to appear at the top of the prescription page
             infoBoxOutput("avg_presc"),
             infoBoxOutput("avg_age")
           ),
           fluidRow(
             tabBox(title = "Prescriptions",
                    width = 12,
+                   # adding local inputs and corresponding plots in multiple tabs
+                   # creating new tab
                    tabPanel("By Fill Year & Cohort", 
                             selectInput("cohort_select",
                                         "Cohort:",
@@ -61,6 +74,7 @@ body <- dashboardBody(tabItems(
                                         selectize = TRUE,
                                         selected = c("2010", "2011", "2012", "2013", "2014")),
                             plotlyOutput("plot_presc_cohort")),
+                   # creating new tab
                    tabPanel("By Dosage Amount", 
                             selectInput("od_status_select",
                                         "Overdose Status:",
@@ -69,6 +83,7 @@ body <- dashboardBody(tabItems(
                                         selectize = TRUE,
                                         selected = c("No Overdose", "Non-Opiate Overdose", "Opiate Overdose")),
                             plotlyOutput("plot_mme")),
+                   # creating new tab
                    tabPanel("By Fill Year & Drug Form", 
                             selectInput("drug_form_select",
                                         "Drug Form:",
@@ -79,11 +94,14 @@ body <- dashboardBody(tabItems(
                             plotlyOutput("plot_presc_dose")))
             )
           ),
+  # Adding elements to the 'service' menu item
   tabItem("service",
+          # adding info boxes at the top of the service page
           fluidRow(
             infoBoxOutput("avg_mh"),
             infoBoxOutput("avg_da")
           ),
+          # adding local input and plot
           fluidRow(
             box(title = "Service Usage Relative to Prescriptions",
                 width = 12,
@@ -92,30 +110,37 @@ body <- dashboardBody(tabItems(
                   "Select column for Y axis",
                   choices = colnames(merged[c(33, 34, 38)]),
                   selected = colnames(merged[33])),
-                  mainPanel(
+                  mainPanel(width = 12,
                     plotlyOutput("plot_service"))
                   )
                 )
             ),
+  # Adding elements to the 'cjs' menu item
   tabItem("cjs",
           fluidRow(
+            # adding info boxes at the top of the page
             infoBoxOutput("avg_jail"),
             infoBoxOutput("avg_charge")
           ),
+          # adding plot
           fluidRow(
-            tabBox(title = "Criminality",
-                   width = 12,
-                   tabPanel("Months in Criminal Justice System", plotlyOutput("plot_jail")))
+            box(title = "Months in Criminal Justice System",
+                width = 12,
+                mainPanel(width = 12,
+                  plotlyOutput("plot_jail"))
+                )
             )
           ),
+  # Adding elements to the 'data' menu item
   tabItem("data",
           fluidRow(
             box(title = "Data Table",
                 width = 12,
+                # includes download button to get a .csv of the data
                 inputPanel(
                      downloadButton("downloadData","Download Prescription Summary Data")),
-                   mainPanel(
-                     DT::dataTableOutput("table")))
+                mainPanel(width = 12,
+                  DT::dataTableOutput("table")))
             )
           )
   )
@@ -127,7 +152,7 @@ ui <- dashboardPage(header, sidebar, body, skin = "green", useShinyjs())
 server <- function(input, output, session) {
   dataFiltered <- reactive({
     filt <- merged
-      # creating filters for year_select, type_select, source_select and nbhd_select inputs
+      # creating filters for race, gender, cohort / start_year, if_opiate_od, and drug form
      if (length(input$race_select) > 0) {
        filt <- subset(filt, race %in% input$race_select)
      }
@@ -146,25 +171,25 @@ server <- function(input, output, session) {
      return(filt) 
   })
 
-  # A plot showing the mass of characters
+  # A plot showing number of prescriptions by fill year and cohort
   output$plot_presc_cohort <- renderPlotly({
     dat <- dataFiltered() %>% group_by(FILL_YEAR, start_year) %>% summarise(number = n())
     ggplot(data = dat, aes(x = as.factor(FILL_YEAR), y = number, fill = as.factor(start_year))) + 
       geom_bar(stat = "identity") + theme_bw()
   })
-  
+  # A plot showing number of prescriptions by fill year, filtered by dosage form
   output$plot_presc_dose <- renderPlotly({
     dat <- dataFiltered() %>% group_by(FILL_YEAR, dosage_form_clean) %>% summarise(number = n())
     ggplot(data = dat, aes(x = as.factor(FILL_YEAR), y = number, fill = dosage_form_clean)) + 
       geom_bar(stat = "identity") + theme_bw()
   })
-  
+  # A plot showing density of dosage per prescription, colored differently for different sub-populations (opiate status)
   output$plot_mme <- renderPlotly({
     dat <- dataFiltered() 
     ggplot(data = dat, aes(x = avg_MME_per_presc, fill = if_opiate_od)) + 
       geom_density(alpha = 0.5, adjust = 3) + xlim(0,7500) + theme_bw()
   })
-  
+  # Creating info box for average number of prescriptions per person
   output$avg_presc <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(ind_presc = n())
     num <- round(mean(dat$ind_presc, na.rm = T))
@@ -172,14 +197,14 @@ server <- function(input, output, session) {
             value = num, paste(nrow(dataFiltered()), "total prescriptions in dataset"), 
             icon = icon("calculator"), color = "blue")
   })
-  
+  # Creating info box for average age of people in dataset
   output$avg_age <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(avg_age = max(avg_age))
     num <- round(mean(dat$avg_age, na.rm = T))
     infoBox("Avg Age", value = num, subtitle = paste(nrow(dat), "total individuals in dataset"), 
             icon = icon("calculator"), color = "blue")
   })
-  
+  # Creating info box for average mental health service usage
   output$avg_mh <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% 
       summarise(months_activity = max(months_activity), mh_count = max(num_mh)) %>%
@@ -188,7 +213,7 @@ server <- function(input, output, session) {
     infoBox("Avg Percent Mental Health Service Usage", value = paste(num, "%"), subtitle = "if ever used", 
             icon = icon("calculator"), color = "blue")
   })
-  
+  # Creating info box for average drug and alcohol abuse service
   output$avg_da <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% 
       summarise(months_activity = max(months_activity), da_count = max(num_da)) %>% 
@@ -197,7 +222,8 @@ server <- function(input, output, session) {
     infoBox("Avg Percent Drug and Alcohol Abuse Service Usage", subtitle = "if ever used", value = paste(num, "%"), 
             icon = icon("calculator"), color = "blue")
   })
-  
+  # A plot showing proportion of any service (mh, da or cyfparent) to total prescription service usage
+  # This plot contains an input that allows user to select the service they are interested in viewing (changing y axis)
   output$plot_service <- renderPlotly({
     y_axis = input$yAxis_select
     filter <- dataFiltered()[c("FILL_YEAR", "num_rx", y_axis)]
@@ -206,7 +232,7 @@ server <- function(input, output, session) {
     ggplot(data = dat, aes(x = as.factor(FILL_YEAR), y = prop)) + 
       geom_histogram(stat = "identity", fill = "#00AFDE") + ylim(0, 1) + theme_bw()
   })
-  
+  # Plot that showcases the association between criminal justice system elements and prescription service usage
   output$plot_jail <- renderPlotly({
     dat <- dataFiltered()
     ggplot(data = dat, aes(x = num_rx)) + 
@@ -216,7 +242,7 @@ server <- function(input, output, session) {
       scale_colour_manual("", breaks = c("num_acj", "num_charge", "num_drug_charge"), 
                           values = c("blue", "red", "purple")) + theme_bw()
   })
-  
+  # Info box showing the proportion of their time in jail relative to their months of activity (if they have ever been jailed)
   output$avg_jail <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% 
       summarise(months_activity = max(months_activity), acj_count = max(num_acj)) %>%
@@ -225,19 +251,21 @@ server <- function(input, output, session) {
     infoBox("Percentage Time in Jail", subtitle = "if ever jailed", value = paste(num, "%"), 
             icon = icon("calculator"), color = "blue")
   })
-  
+  # Info box showing average number of charges of an individual in the dataset (if they have ever been charged)
   output$avg_charge <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(num_charges = max(num_charge)) %>% filter(num_charges > 0)
     num <- round(mean(dat$num_charges, na.rm = T),2)
     infoBox("Avg No. of Charges", value = num, subtitle = "if ever charged", icon = icon("calculator"), color = "blue")
   })
-  
+  # Adding table output (Subset of dataFiltered())
   output$table <- DT::renderDataTable({
     filt <- dataFiltered()
-    subset(filt, select = c(PERSON_ID, FILL_YEAR, start_year, if_opiate_od, num_mh, num_da, num_cyfparent, dosage_form_clean, 
-                            race, gender, avg_age, months_activity, num_charge, num_drug_charge, num_rx, num_acj, avg_MME_per_presc))
-  })
-  
+    subset(filt, 
+           select = c(PERSON_ID, FILL_YEAR, start_year, if_opiate_od, num_mh, num_da, num_cyfparent, dosage_form_clean,
+                      race, gender, avg_age, months_activity, num_charge, num_drug_charge, num_rx, num_acj, avg_MME_per_presc))},
+    options = list(scrollX = TRUE),
+    rownames = FALSE)
+  # Adding downloadData output
   output$downloadData <- downloadHandler(
     filename = function() {
       paste("presc-summary-data-", Sys.Date(), ".csv", sep="")
@@ -246,7 +274,7 @@ server <- function(input, output, session) {
       write.csv(count_data, file, row.names = FALSE)
     }
   )
-  
+  # Resetting all filters (global and local)
   observeEvent(input$reset, {
     updateSelectInput(session, "race_select", selected = c("White", "Black/African-American", "Other"))
     updateSelectInput(session, "gender_select", selected = c("Female", "Male", "Other"))
@@ -258,5 +286,5 @@ server <- function(input, output, session) {
   })
 }
 
-# Run the application 
+# Running the application 
 shinyApp(ui = ui, server = server)
