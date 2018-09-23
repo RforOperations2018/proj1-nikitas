@@ -66,6 +66,7 @@ body <- dashboardBody(tabItems(
             # info boxes to appear at the top of the prescription page
             infoBoxOutput("avg_presc"),
             infoBoxOutput("avg_age")
+            # I would have liked to see a few different icons here.
           ),
           fluidRow(
             tabBox(title = "How does the prescription count vary?",
@@ -203,6 +204,7 @@ server <- function(input, output, session) {
   output$avg_presc <- renderInfoBox({
     dat <- dataFiltered() %>% group_by(PERSON_ID) %>% summarise(ind_presc = n())
     num <- round(mean(dat$ind_presc, na.rm = T))
+    # In addition in the future you might want to use prettyNum() to add commas to your numeric boxes
     infoBox("Avg # Rx per Person", 
             value = num, paste(nrow(dataFiltered()), "prescriptions"), 
             icon = icon("calculator"), color = "blue")
